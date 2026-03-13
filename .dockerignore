@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.env
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log
+tmp/
+C:/Users/admin/.gemini/
+C:/Users/admin/.gemini/antigravity/
+C:/Users/admin/.gemini/antigravity/brain/
