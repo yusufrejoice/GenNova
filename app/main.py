@@ -1,7 +1,9 @@
 from fastapi import FastAPI
+# Triggering reload to apply new robustness fixes
 from app.modules.auth.routes import router as auth_router
 from app.modules.text_to_text.routes import router as text_to_text_router
 from app.modules.text_to_image.routes import router as text_to_image_router
+from app.modules.admin.routes import router as admin_router
 import logging
 
 # Configure logging
@@ -20,6 +22,7 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(text_to_text_router)
 app.include_router(text_to_image_router)
+app.include_router(admin_router)
 
 @app.get("/")
 def health_check():

@@ -75,11 +75,17 @@ def login_user(login_data: UserLogin) -> Dict[str, Any]:
             )
 
         # 2. Get profile
-        profile_response = supabase.table("profiles").select("*").eq("id", response.user.id).single().execute()
+        response_profile = supabase.table("profiles").select("*").eq("id", response.user.id).limit(1).execute()
         
+        if not response_profile or not response_profile.data or len(response_profile.data) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User profile not found"
+            )
+
         return {
             "access_token": response.session.access_token,
-            "user": profile_response.data
+            "user": response_profile.data[0]
         }
 
     except Exception as e:
@@ -93,7 +99,7 @@ def get_profile_by_id(user_id: str) -> Dict[str, Any]:
     """
     Retrieves user profile from database.
     """
-    profile_response = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-    if not profile_response.data:
+    profile_response = supabase.table("profiles").select("*").eq("id", user_id).limit(1).execute()
+    if not profile_response or not profile_response.data or len(profile_response.data) == 0:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return profile_response.data
+    return profile_response.data[0]

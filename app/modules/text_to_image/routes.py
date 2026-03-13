@@ -11,7 +11,9 @@ from app.modules.text_to_image.schemas import (
     FashionRequest
 )
 from app.modules.text_to_image.service import text_to_image_service
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, has_sufficient_credits
+from app.modules.admin.admin_service import admin_service
+from app.modules.admin.credit_service import credit_service
 from typing import Dict, Any
 
 router = APIRouter(prefix="/image", tags=["Text-to-Image AI"])
@@ -19,15 +21,25 @@ router = APIRouter(prefix="/image", tags=["Text-to-Image AI"])
 @router.post("/generate", response_model=ImageGenerationResponse)
 async def generate_image(
     request: ImageGenerationRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
         user_id = current_user.get("id")
+        
+        # Check model status
+        if not admin_service.is_model_active(request.model_id):
+            raise HTTPException(status_code=403, detail=f"Model {request.model_id} is currently disabled by admin.")
+            
         result = text_to_image_service.generate_image(
             prompt=request.prompt,
             model_id=request.model_id,
             user_id=user_id
         )
+        
+        # Deduct credits on success
+        if result.get("status") == "success":
+            credit_service.deduct_credits(user_id, 1)
+            
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -35,7 +47,7 @@ async def generate_image(
 @router.post("/regenerate", response_model=ImageGenerationResponse)
 async def regenerate_image(
     request: RegenerateRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
         user_id = current_user.get("id")
@@ -43,6 +55,8 @@ async def regenerate_image(
             generation_id=request.generation_id,
             user_id=user_id
         )
+        if result.get("status") == "success":
+            credit_service.deduct_credits(user_id, 1)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -50,7 +64,7 @@ async def regenerate_image(
 @router.post("/refine", response_model=ImageGenerationResponse)
 async def refine_image(
     request: RefineRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
         user_id = current_user.get("id")
@@ -59,6 +73,8 @@ async def refine_image(
             refinement=request.refinement_prompt,
             user_id=user_id
         )
+        if result.get("status") == "success":
+            credit_service.deduct_credits(user_id, 1)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -66,10 +82,13 @@ async def refine_image(
 @router.post("/product", response_model=ImageGenerationResponse)
 async def generate_product_image(
     request: ProductImageRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
         user_id = current_user.get("id")
+        if not admin_service.is_model_active(request.model_id):
+            raise HTTPException(status_code=403, detail=f"Model {request.model_id} is disabled.")
+            
         result = text_to_image_service.generate_product_image(
             product_name=request.product_name,
             category=request.category,
@@ -78,6 +97,8 @@ async def generate_product_image(
             user_id=user_id,
             model_id=request.model_id
         )
+        if result.get("status") == "success":
+            credit_service.deduct_credits(user_id, 1)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -85,16 +106,21 @@ async def generate_product_image(
 @router.post("/style", response_model=ImageGenerationResponse)
 async def generate_style_image(
     request: StylePresetRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
         user_id = current_user.get("id")
+        if not admin_service.is_model_active(request.model_id):
+            raise HTTPException(status_code=403, detail=f"Model {request.model_id} is disabled.")
+
         result = text_to_image_service.generate_style_image(
             original_prompt=request.prompt,
             style_name=request.style_name,
             user_id=user_id,
             model_id=request.model_id
         )
+        if result.get("status") == "success":
+            credit_service.deduct_credits(user_id, 1)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -102,10 +128,13 @@ async def generate_style_image(
 @router.post("/character", response_model=ImageGenerationResponse)
 async def generate_character_image(
     request: CharacterRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
         user_id = current_user.get("id")
+        if not admin_service.is_model_active(request.model_id):
+            raise HTTPException(status_code=403, detail=f"Model {request.model_id} is disabled.")
+
         result = text_to_image_service.generate_character_image(
             gender=request.gender,
             age=request.age,
@@ -115,6 +144,8 @@ async def generate_character_image(
             user_id=user_id,
             model_id=request.model_id
         )
+        if result.get("status") == "success":
+            credit_service.deduct_credits(user_id, 1)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -122,16 +153,21 @@ async def generate_character_image(
 @router.post("/interior", response_model=ImageGenerationResponse)
 async def generate_interior_image(
     request: InteriorRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
         user_id = current_user.get("id")
+        if not admin_service.is_model_active(request.model_id):
+            raise HTTPException(status_code=403, detail=f"Model {request.model_id} is disabled.")
+
         result = text_to_image_service.generate_interior_image(
             room_type=request.room_type,
             style=request.style,
             user_id=user_id,
             model_id=request.model_id
         )
+        if result.get("status") == "success":
+            credit_service.deduct_credits(user_id, 1)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -139,10 +175,13 @@ async def generate_interior_image(
 @router.post("/fashion", response_model=ImageGenerationResponse)
 async def generate_fashion_image(
     request: FashionRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
         user_id = current_user.get("id")
+        if not admin_service.is_model_active(request.model_id):
+            raise HTTPException(status_code=403, detail=f"Model {request.model_id} is disabled.")
+
         result = text_to_image_service.generate_fashion_image(
             item_type=request.item_type,
             material=request.material,
@@ -151,6 +190,8 @@ async def generate_fashion_image(
             user_id=user_id,
             model_id=request.model_id
         )
+        if result.get("status") == "success":
+            credit_service.deduct_credits(user_id, 1)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

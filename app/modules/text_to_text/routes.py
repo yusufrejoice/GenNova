@@ -8,7 +8,9 @@ from app.modules.text_to_text.schemas import (
     TextGenerationResponse
 )
 from app.modules.text_to_text.service import text_to_text_service
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, has_sufficient_credits
+from app.modules.admin.admin_service import admin_service
+from app.modules.admin.credit_service import credit_service
 from typing import Dict, Any
 
 router = APIRouter(prefix="/text-to-text", tags=["Text-to-Text AI"])
@@ -16,10 +18,15 @@ router = APIRouter(prefix="/text-to-text", tags=["Text-to-Text AI"])
 @router.post("/generate-product-description")
 async def generate_product_description(
     request: ProductDescriptionRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
+        user_id = current_user.get("id")
         model_id = request.model_id or text_to_text_service.DEFAULT_MODEL
+        
+        # Check model status
+        if not admin_service.is_model_active(model_id):
+            raise HTTPException(status_code=403, detail=f"Model {model_id} is currently disabled by admin.")
         prompt = text_to_text_service.build_product_prompt(request.product_name, request.features)
         content = await text_to_text_service.generate_content(prompt, request.model_id)
         
@@ -32,6 +39,9 @@ async def generate_product_description(
             action_type="generate"
         )
         
+        # Deduct credits
+        credit_service.deduct_credits(user_id, 1)
+        
         return {
             "id": gen_id,
             "generated_text": content,
@@ -43,10 +53,16 @@ async def generate_product_description(
 @router.post("/generate-blog")
 async def generate_blog(
     request: BlogRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
+        user_id = current_user.get("id")
         model_id = request.model_id or text_to_text_service.DEFAULT_MODEL
+        
+        # Check model status
+        if not admin_service.is_model_active(model_id):
+            raise HTTPException(status_code=403, detail=f"Model {model_id} is currently disabled by admin.")
+            
         prompt = text_to_text_service.build_blog_prompt(request.topic, request.tone)
         content = await text_to_text_service.generate_content(prompt, request.model_id)
         
@@ -59,6 +75,9 @@ async def generate_blog(
             action_type="generate"
         )
         
+        # Deduct credits
+        credit_service.deduct_credits(user_id, 1)
+        
         return {
             "id": gen_id,
             "generated_text": content,
@@ -70,10 +89,16 @@ async def generate_blog(
 @router.post("/generate-caption")
 async def generate_caption(
     request: CaptionRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
+        user_id = current_user.get("id")
         model_id = request.model_id or text_to_text_service.DEFAULT_MODEL
+        
+        # Check model status
+        if not admin_service.is_model_active(model_id):
+            raise HTTPException(status_code=403, detail=f"Model {model_id} is currently disabled by admin.")
+            
         prompt = text_to_text_service.build_caption_prompt(request.topic, request.platform)
         content = await text_to_text_service.generate_content(prompt, request.model_id)
         
@@ -86,6 +111,9 @@ async def generate_caption(
             action_type="generate"
         )
         
+        # Deduct credits
+        credit_service.deduct_credits(user_id, 1)
+        
         return {
             "id": gen_id,
             "generated_text": content,
@@ -97,9 +125,16 @@ async def generate_caption(
 @router.post("/refine")
 async def refine_text(
     request: RefineRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(has_sufficient_credits(1))
 ):
     try:
+        user_id = current_user.get("id")
+        model_id = request.model_id or text_to_text_service.DEFAULT_MODEL
+        
+        # Check model status
+        if not admin_service.is_model_active(model_id):
+            raise HTTPException(status_code=403, detail=f"Model {model_id} is currently disabled by admin.")
+            
         content = await text_to_text_service.refine_content(
             request.original_text, 
             request.refinement_instructions, 
@@ -118,6 +153,9 @@ async def refine_text(
             action_type="refine",
             parent_id=request.parent_id
         )
+        
+        # Deduct credits
+        credit_service.deduct_credits(user_id, 1)
         
         return {
             "id": gen_id,

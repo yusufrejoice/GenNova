@@ -21,6 +21,17 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(auth_scheme))
         
         # Get custom profile from 'profiles' table
         profile = get_profile_by_id(user_response.user.id)
+        
+        # Check if user is banned
+        banned_until = profile.get("banned_until")
+        if banned_until:
+            from datetime import datetime
+            if datetime.fromisoformat(banned_until.replace('Z', '+00:00')) > datetime.now().astimezone():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"User is banned until {banned_until}"
+                )
+                
         return profile
 
     except Exception as e:
@@ -39,3 +50,17 @@ def check_admin_role(current_user: Dict[str, Any] = Depends(get_current_user)) -
             detail="Admin access required"
         )
     return current_user
+
+def has_sufficient_credits(amount: int = 1):
+    """
+    Dependency to check if a user has enough credits before an operation.
+    """
+    def dependency(current_user: Dict[str, Any] = Depends(get_current_user)):
+        user_credits = current_user.get("credits", 0)
+        if user_credits < amount:
+            raise HTTPException(
+                status_code=402,
+                detail="Insufficient credits. Please contact admin to add credits."
+            )
+        return current_user
+    return dependency
